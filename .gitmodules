@@ -1,0 +1,3 @@
+[submodule "NPTP_external"]
+	path = NPTP_external
+	url = https://github.com/lianglu-nk/NPTP_external.git

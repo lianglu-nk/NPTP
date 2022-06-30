@@ -56,3 +56,8 @@ make -C $workdir/cluster/exec all multiproc=1
 
 wget https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_29/chembl_29.sdf.gz --directory=$workdir/knime-workspace/TheData/
 gunzip $workdir/knime-workspace/TheData/chembl_29.sdf.gz
+
+# download the models https://doi.org/10.5281/zenodo.6782271
+cd $workdir
+wget --continue https://zenodo.org/record/6782271/files/model.tar.gz
+tar xvf model.tar.gz

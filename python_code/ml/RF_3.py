@@ -1,17 +1,11 @@
 import multiprocessing as mp
 import os
 import warnings
-from random import shuffle
 from rdkit.Chem import MACCSkeys
-import numpy as np
-import pandas as pd
 from rdkit.Chem import MolFromSmiles,AllChem
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
-from rdkit import DataStructs
 from sklearn.ensemble import RandomForestClassifier
 import joblib
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score, cohen_kappa_score
-from sklearn.metrics import confusion_matrix, silhouette_score, average_precision_score
 import datetime
 import argparse
 import pandas as pd
@@ -19,29 +13,30 @@ import itertools
 import numpy as np
 import pickle
 warnings.filterwarnings("ignore")
+
 #Root directory
 basePath=os.getcwd()
+
 #Hyperparametric dictionary
 dictionary0 = {
     'n_estimators':[10,50,100,300,700,1000],
     'criterion':['gini','entropy'],
-    'max_features':['sqrt','log2']
+    'max_features':['sqrt','log2'],
+    'max_depth':[1,3,5,7,9]
 }
 #Hyperparameters combination
 hyperParams0 = pd.DataFrame(list(itertools.product(*dictionary0.values())), columns=dictionary0.keys())
-new=pd.DataFrame({'n_estimators':50,'criterion':'gini','max_features':'sqrt'},index=[24])
-hyperParams0=hyperParams0.append(new)
 hyperParams0.index=np.arange(len(hyperParams0.index.values))
 #External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
+parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+"/noweakchembl29end/ML/cl/")
+parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+"/noweakchembl29end/ML/pertargetdata/")
 parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+"/noweakchembl29end/ML/res_noweakchembl29end/")
 parser.add_argument("-ofolds", help="Outer Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-ifolds", help="Inner Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-pStart", help="Parameter Start Index", type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=25)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=120)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -51,6 +46,7 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 #Parameter index
 compParams = list(range(paramStart, paramEnd))
 #The optional parameter is selected according to the AUC value
@@ -60,12 +56,9 @@ def bestSettingsSimple(perfFiles, nrParams):
         for foldInd in range(0, 4):
             aucParam=[]
             for paramNr in range(0, nrParams):
-                #try:
                 saveFile=open(perfFiles[outind][foldInd][paramNr], "rb")
                 aucRun=pickle.load(saveFile)
                 saveFile.close()
-                #except:
-                #  pass
                 if(len(aucRun)>0):
                     aucParam.append(aucRun[-1])
         
@@ -78,6 +71,7 @@ def bestSettingsSimple(perfFiles, nrParams):
     paramInd=np.nanmean(aucMean, axis=1).argmax()
   
     return (paramInd, aucMean, aucFold)
+
 #Extraction of cluster information, characteristic information, activity information and target name corresponding to each target 
 def ClusterCV(csv_file):
     tar_id = csv_file.split('.')[0]
@@ -130,7 +124,6 @@ def batchECFP(smiles, radius=3, nBits=2048):
 
 #Read file information in a folder
 def get_file_list(file_folder):
-    # method one: file_list = os.listdir(file_folder)
     for root, dirs, file_list in os.walk(file_folder):
         return file_list
 
@@ -153,8 +146,6 @@ def data_split_modeling(target_file):
     if not os.path.exists(dbgPath):
         os.makedirs(dbgPath)
     # modeling
-
-    
     savePrefix0=target_name+'_model'
     savePrefix=save_path+savePrefix0
     dbgOutput=open(dbgPath+savePrefix0+".dbg", "w")
@@ -173,24 +164,19 @@ def data_split_modeling(target_file):
     print(hyperParams0.iloc[paramNr], file=dbgOutput)
     print(perfTable, file=dbgOutput)
     dbgOutput.close()
-        
-    if paramNr==24:
-        rf = RandomForestClassifier()
-    else:
-        n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
-        criterion1 = hyperParams0.iloc[paramNr].criterion
-        max_features1 = hyperParams0.iloc[paramNr].max_features
-        rf = RandomForestClassifier(n_estimators=n_estimators1,criterion=criterion1,max_features=max_features1)
 
-    # Get training data
+    n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
+    criterion1 = hyperParams0.iloc[paramNr].criterion
+    max_features1 = hyperParams0.iloc[paramNr].max_features
+    rf = RandomForestClassifier(n_estimators=n_estimators1,criterion=criterion1,max_features=max_features1,random_state=1)
+
+    # Get training index
     train_index = np.where(folds != 6)[0]
-    #print(train_index)
     # Get train samples
     X_train = features[train_index, :]
     y_train = active_label.iloc[train_index]
     # Modeling 
     rf.fit(X_train, y_train)
-    
     saveFilename = savePrefix + "_rf.pckl"
     joblib.dump(rf,saveFilename)
 
@@ -201,7 +187,7 @@ folder_path = pertarget_file
 files_list = get_file_list(folder_path)
 #Number of targets corresponds to number of tasks
 p = mp.Pool(processes=949)
-for tar_file in files_list:
+for tar_file in files_list[:1]:
     result = p.apply_async(data_split_modeling, args=(tar_file,))  # distribute one task to one pool
 p.close()  # finished load task
 p.join()  # start

@@ -4,15 +4,10 @@ import warnings
 from random import shuffle
 from rdkit.Chem import MACCSkeys
 
-import numpy as np
-import pandas as pd
 from rdkit.Chem import MolFromSmiles, AllChem
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
-from rdkit import DataStructs
 from sklearn.svm import SVC
 import joblib
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score, cohen_kappa_score
-from sklearn.metrics import confusion_matrix, silhouette_score, average_precision_score
 import datetime
 import argparse
 import pandas as pd
@@ -48,26 +43,17 @@ hyperParams2 = pd.DataFrame(list(itertools.product(
     *dictionary2.values())), columns=dictionary2.keys())
 hyperParams2.index = np.arange(len(hyperParams2.index.values))
 hyperParams = pd.concat([hyperParams0, hyperParams1, hyperParams2], axis=0)
-new = pd.DataFrame({'kernel': 'default', 'C': 1, 'gamma': 0.1}, index=[32])
-hyperParams = hyperParams.append(new)
 hyperParams.index = np.arange(len(hyperParams.index.values))
 # External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str,
-                    default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target",
-                    type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
-parser.add_argument("-datasetNames", help="Dataset Name",
-                    type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str,
-                    default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
-parser.add_argument("-ofolds", help="Outer Folds",
-                    nargs='+', type=int, default=[0, 1, 2, 3, 4])
-parser.add_argument("-ifolds", help="Inner Folds",
-                    nargs='+', type=int, default=[0, 1, 2, 3, 4])
-parser.add_argument("-pStart", help="Parameter Start Index",
-                    type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=33)
+parser.add_argument("-cl_file", help="cl per target", type=str,default=basePath+'/noweakchembl29end/ML/cl/')
+parser.add_argument("-pertarget_file", help="smi per target",type=str, default=basePath+'/noweakchembl29end/ML/pertargetdata/')
+parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str,default=basePath+'/noweakchembl29end/ML/res_noweakchembl29end/')
+parser.add_argument("-ofolds", help="Outer Folds",nargs='+', type=int, default=[0, 1, 2, 3, 4])
+parser.add_argument("-ifolds", help="Inner Folds",nargs='+', type=int, default=[0, 1, 2, 3, 4])
+parser.add_argument("-pStart", help="Parameter Start Index",type=int, default=0)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=32)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -77,39 +63,32 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
+
 # Parameter index
 compParams = list(range(paramStart, paramEnd))
 
 # The optional parameter is selected according to the AUC value
-
-
 def bestSettingsSimple(perfFiles, nrParams):
     aucFold = []
     for outind in range(0, 5):
         for foldInd in range(0, 4):
             aucParam = []
             for paramNr in range(0, nrParams):
-                # try:
                 saveFile = open(perfFiles[outind][foldInd][paramNr], "rb")
                 aucRun = pickle.load(saveFile)
                 saveFile.close()
-                # except:
-                #  pass
                 if(len(aucRun) > 0):
                     aucParam.append(aucRun[-1])
-
             aucParam = np.array(aucParam)
-
             if(len(aucParam) > 0):
                 aucFold.append(aucParam)
     aucFold = np.array(aucFold)
     aucMean = np.nanmean(aucFold, axis=0)
     paramInd = np.nanmean(aucMean, axis=1).argmax()
-
     return (paramInd, aucMean, aucFold)
+
 # Extraction of cluster information, characteristic information, activity information and target name corresponding to each target
-
-
 def ClusterCV(csv_file):
     tar_id = csv_file.split('.')[0]
     file_name = pertarget_file + csv_file
@@ -125,8 +104,6 @@ def ClusterCV(csv_file):
     return folds, features, labels, target_name
 
 # SMILES to fingerprint feature conversion / Different combinations of fingerprint features
-
-
 def batchECFP(smiles, radius=3, nBits=2048):
     smiles = np.array(smiles)
     n = len(smiles)
@@ -164,21 +141,16 @@ def batchECFP(smiles, radius=3, nBits=2048):
     return fingerprints_out
 
 # Read file information in a folder
-
-
 def get_file_list(file_folder):
-    # method one: file_list = os.listdir(file_folder)
     for root, dirs, file_list in os.walk(file_folder):
         return file_list
 
 # CSV reading
-
-
 def file_reader(file_path):
     data = pd.read_csv(file_path)
     return data
 
-
+#Clustering nested cross validation
 def data_split_modeling(target_file):
     target_id = target_file.split('.')[0]
     cluster_res = ClusterCV(csv_file=target_file)
@@ -193,7 +165,6 @@ def data_split_modeling(target_file):
     if not os.path.exists(dbgPath):
         os.makedirs(dbgPath)
     # modeling
-
     savePrefix0 = target_name+'_model'
     savePrefix = save_path+savePrefix0
     dbgOutput = open(dbgPath+savePrefix0+".dbg", "w")
@@ -214,24 +185,20 @@ def data_split_modeling(target_file):
     print(hyperParams.iloc[paramNr], file=dbgOutput)
     print(perfTable, file=dbgOutput)
     dbgOutput.close()
-
     kernel = hyperParams.iloc[paramNr].kernel
     if kernel == 'Tanimoto':
         C1 = hyperParams.iloc[paramNr].C
-        svc = SVC(C=C1, kernel=Tanimoto(), probability=True)
+        svc = SVC(C=C1, kernel=Tanimoto(), probability=True,random_state=1)
     if kernel == 'rbf':
         C1 = hyperParams.iloc[paramNr].C
         gamma1 = hyperParams.iloc[paramNr].gamma
-        svc = SVC(C=C1, kernel='rbf', gamma=gamma1, probability=True)
+        svc = SVC(C=C1, kernel='rbf', gamma=gamma1, probability=True,random_state=1)
     if kernel == 'linear':
         C1 = hyperParams.iloc[paramNr].C
-        svc = SVC(C=C1, kernel='linear', probability=True)
-    if kernel == 'default':
-        svc = SVC()
+        svc = SVC(C=C1, kernel='linear', probability=True,random_state=1)
 
-    # Get training data
+    # Get training index
     train_index = np.where(folds != 6)[0]
-    # print(train_index)
     # Get train samples
     X_train = features[train_index, :]
     y_train = active_label.iloc[train_index]
@@ -247,11 +214,10 @@ print("Start time", startime)
 # Active data file for each target
 folder_path = pertarget_file
 files_list = get_file_list(folder_path)
-# Number of targets corresponds to number of tasks
+#Number of targets corresponds to number of tasks
 p = mp.Pool(processes=949)
-for tar_file in files_list:
-    result = p.apply_async(data_split_modeling, args=(
-        tar_file,))  # distribute one task to one pool
+for tar_file in files_list[:1]:
+    result = p.apply_async(data_split_modeling, args=(tar_file,))  # distribute one task to one pool
 p.close()  # finished load task
 p.join()  # start
 print("Sub-process(es) done.")

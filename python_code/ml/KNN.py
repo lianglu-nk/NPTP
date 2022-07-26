@@ -1,27 +1,22 @@
 import multiprocessing as mp
 import os
 import warnings
-from random import shuffle
-from rdkit.Chem import MACCSkeys
-import numpy as np
-import pandas as pd
-from rdkit.Chem import MolFromSmiles,AllChem
-from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
-from rdkit import DataStructs
-from sklearn.neighbors import KNeighborsClassifier
-import joblib
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score
-from sklearn.metrics import confusion_matrix, silhouette_score, average_precision_score
 import datetime
 import argparse
 import pandas as pd
 import itertools
 import numpy as np
 import pickle
+
+from rdkit.Chem import MACCSkeys
+from rdkit.Chem import MolFromSmiles,AllChem
+from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score
 warnings.filterwarnings("ignore")
-#Hyperparametric dictionary
+
 dictionary0 = {
-    'n_neighbors':[1,3,5,7,9,11]
+    "n_neighbors":range(1,21,2)
 }
 #Root directory
 basePath=os.getcwd()
@@ -30,14 +25,14 @@ hyperParams0 = pd.DataFrame(list(itertools.product(*dictionary0.values())), colu
 hyperParams0.index=np.arange(len(hyperParams0.index.values))
 #External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
 parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
+parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+"/noweakchembl29end/ML/cl/")
+parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+"/noweakchembl29end/ML/pertargetdata/")
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+"/noweakchembl29end/ML/res_noweakchembl29end/")
 parser.add_argument("-ofolds", help="Outer Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-ifolds", help="Inner Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-pStart", help="Parameter Start Index", type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=6)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=10)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -47,16 +42,17 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 #Parameter index
 compParams = list(range(paramStart, paramEnd))
 
 #Extraction of cluster information, characteristic information, activity information and target name corresponding to each target 
 def ClusterCV(csv_file):
     #Read active files in sequence
-    tar_id = csv_file.split('.')[0]
+    tar_id = csv_file.split(".")[0]
     file_name = pertarget_file + csv_file
     #The clustering file corresponding to the active file
-    clusterSampleFilename = os.path.join(cl_file, 'cl' + tar_id + ".info")
+    clusterSampleFilename = os.path.join(cl_file, "cl" + tar_id + ".info")
     #Extract information from active files
     chembl_data = file_reader(file_name)
     target_name = chembl_data.iloc[0,0]
@@ -107,10 +103,8 @@ def batchECFP(smiles, radius=3, nBits=2048):
     
     return fingerprints_out
 
-
 #Read file information in a folder
 def get_file_list(file_folder):
-    # method one: file_list = os.listdir(file_folder)
     for root, dirs, file_list in os.walk(file_folder):
         return file_list
 
@@ -118,6 +112,7 @@ def get_file_list(file_folder):
 def file_reader(file_path):
     data = pd.read_csv(file_path)
     return data
+
 #Clustering nested cross validation
 def data_split_modeling(target_file):
     target_id = target_file.split('.')[0]
@@ -145,10 +140,9 @@ def data_split_modeling(target_file):
                     n_neighbors1 = hyperParams0.iloc[paramNr].n_neighbors
                     knn = KNeighborsClassifier(n_neighbors=n_neighbors1)
 
-                    # Get training and testing set
+                    # Get training and testing index
                     test_index = np.where(folds == innerFold)[0]
                     train_index = np.where((folds != outerFold) & (folds != innerFold))[0]
-                    #print(train_index)
                     # Get train and test samples
                     X_test = features[test_index, :]
                     X_train = features[train_index, :]
@@ -168,8 +162,8 @@ def data_split_modeling(target_file):
                     pickle.dump(reportTestAUC, saveFile)
                     saveFile.close()
                 except:
-                    with open(saveBasePath+"/ML/"+datasetNames+"/KNN/" +"failed_target", 'a+') as failed:
-                        failed.write(target_name + ' ' + 'failed' + '\n')
+                    with open(saveBasePath+"/ML/"+datasetNames+"/KNN/" +target_name+"failed_target", "a+") as failed:
+                        failed.write(target_name + " " + "failed" + "\n")
 
 startime = datetime.datetime.now()
 print("Start time", startime)
@@ -179,6 +173,7 @@ files_list = get_file_list(folder_path)
 #Number of targets corresponds to number of tasks
 p = mp.Pool(processes=949)
 for tar_file in files_list:
+    # data_split_modeling(tar_file)
     result = p.apply_async(data_split_modeling, args=(tar_file,))  # distribute one task to one pool
 p.close()  # finished load task
 p.join()  # start

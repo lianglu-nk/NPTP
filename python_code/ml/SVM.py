@@ -3,9 +3,6 @@ import os
 import warnings
 from random import shuffle
 from rdkit.Chem import MACCSkeys
-
-import numpy as np
-import pandas as pd
 from rdkit.Chem import MolFromSmiles, AllChem
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
 from rdkit import DataStructs
@@ -48,26 +45,18 @@ hyperParams2 = pd.DataFrame(list(itertools.product(
     *dictionary2.values())), columns=dictionary2.keys())
 hyperParams2.index = np.arange(len(hyperParams2.index.values))
 hyperParams = pd.concat([hyperParams0, hyperParams1, hyperParams2], axis=0)
-new = pd.DataFrame({'kernel': 'default', 'C': 1, 'gamma': 0.1}, index=[32])
-hyperParams = hyperParams.append(new)
+# hyperParams = pd.concat([hyperParams0], axis=0)
 hyperParams.index = np.arange(len(hyperParams.index.values))
 # External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str,
-                    default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target",
-                    type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
-parser.add_argument("-datasetNames", help="Dataset Name",
-                    type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str,
-                    default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
-parser.add_argument("-ofolds", help="Outer Folds",
-                    nargs='+', type=int, default=[0, 1, 2, 3, 4])
-parser.add_argument("-ifolds", help="Inner Folds",
-                    nargs='+', type=int, default=[0, 1, 2, 3, 4])
-parser.add_argument("-pStart", help="Parameter Start Index",
-                    type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=33)
+parser.add_argument("-pertarget_file", help="smi per target", type=str,default=basePath+'/noweakchembl29end/ML/pertargetdata/')
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str,default=basePath+'/noweakchembl29end/ML/res_noweakchembl29end/')
+parser.add_argument("-cl_file", help="cl per target", type=str,default=basePath+'/noweakchembl29end/ML/cl/')
+parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
+parser.add_argument("-ofolds", help="Outer Folds",nargs='+', type=int, default=[0, 1, 2, 3, 4])
+parser.add_argument("-ifolds", help="Inner Folds",nargs='+', type=int, default=[0, 1, 2, 3, 4])
+parser.add_argument("-pStart", help="Parameter Start Index",type=int, default=0)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=32)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -77,9 +66,9 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 # Parameter index
 compParams = list(range(paramStart, paramEnd))
-
 
 # Extraction of cluster information, characteristic information, activity information and target name corresponding to each target
 def ClusterCV(csv_file):
@@ -94,15 +83,12 @@ def ClusterCV(csv_file):
     labels = chembl_data.active_label
     features = batchECFP(chembl_data.canonical_smiles)
     # Clustering information extraction
-    clusterTab = pd.read_csv(clusterSampleFilename,
-                             header=None, index_col=False, sep=",")
+    clusterTab = pd.read_csv(clusterSampleFilename,header=None, index_col=False, sep=",")
     df = clusterTab.values
     folds = df[:, 0]
     return folds, features, labels, target_name
 
 # SMILES to fingerprint feature conversion / Different combinations of fingerprint features
-
-
 def batchECFP(smiles, radius=3, nBits=2048):
     smiles = np.array(smiles)
     n = len(smiles)
@@ -142,22 +128,17 @@ def batchECFP(smiles, radius=3, nBits=2048):
 
     return fingerprints_out
 
-
 # Read file information in a folder
 def get_file_list(file_folder):
-    # method one: file_list = os.listdir(file_folder)
     for root, dirs, file_list in os.walk(file_folder):
         return file_list
 
 # CSV reading
-
-
 def file_reader(file_path):
     data = pd.read_csv(file_path)
     return data
+
 # Clustering nested cross validation
-
-
 def data_split_modeling(target_file):
     target_id = target_file.split('.')[0]
     cluster_res = ClusterCV(csv_file=target_file)
@@ -180,26 +161,26 @@ def data_split_modeling(target_file):
                     savePrefix0 = "o" + '{0:04d}'.format(outerFold + 1) + "_i" + '{0:04d}'.format(
                         innerFold + 1) + "_p" + '{0:04d}'.format(hyperParams.index.values[paramNr])
                     savePrefix = save_path + savePrefix0
+                    if os.path.isfile(savePrefix+'.test.auc.pckl'):
+                        continue
                     # determine parameter / modeling
                     kernel = hyperParams.iloc[paramNr].kernel
                     if kernel == 'Tanimoto':
                         C1 = hyperParams.iloc[paramNr].C
-                        svc = SVC(C=C1, kernel=Tanimoto(), probability=True)
+                        svc = SVC(C=C1, kernel=Tanimoto(), probability=True,random_state=1)
                     if kernel == 'rbf':
                         C1 = hyperParams.iloc[paramNr].C
                         gamma1 = hyperParams.iloc[paramNr].gamma
                         svc = SVC(C=C1, kernel='rbf',
-                                  gamma=gamma1, probability=True)
+                                  gamma=gamma1, probability=True,random_state=1)
                     if kernel == 'linear':
                         C1 = hyperParams.iloc[paramNr].C
-                        svc = SVC(C=C1, kernel='linear', probability=True)
-                    if kernel == 'default':
-                        svc = SVC(probability=True)
+                        svc = SVC(C=C1, kernel='linear', probability=True,random_state=1)
                     # Get training and testing set
                     test_index = np.where(folds == innerFold)[0]
                     train_index = np.where(
                         (folds != outerFold) & (folds != innerFold))[0]
-                    # Get train and test samples
+                    # Get train and test index
                     X_test = features[test_index, :]
                     X_train = features[train_index, :]
                     y_test = active_label.iloc[test_index]
@@ -218,7 +199,7 @@ def data_split_modeling(target_file):
                     pickle.dump(reportTestAUC, saveFile)
                     saveFile.close()
                 except:
-                    with open(saveBasePath+"/ML/"+datasetNames+"/SVM/" + target_name + '/'+'/failed_target', 'a+') as failed:
+                    with open(saveBasePath+"/ML/"+datasetNames+"/SVM/" + target_name + '/failed_target', 'a+') as failed:
                         failed.write(target_name + ' ' + 'failed' + '\n')
 
 
@@ -230,8 +211,7 @@ files_list = get_file_list(folder_path)
 # Number of targets corresponds to number of tasks
 p = mp.Pool(processes=949)
 for tar_file in files_list:
-    result = p.apply_async(data_split_modeling, args=(
-        tar_file,))  # distribute one task to one pool
+    result = p.apply_async(data_split_modeling, args=(tar_file,))  # distribute one task to one pool
 p.close()  # finished load task
 p.join()  # start
 print("Sub-process(es) done.")

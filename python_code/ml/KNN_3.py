@@ -1,13 +1,9 @@
 import multiprocessing as mp
 import os
 import warnings
-from random import shuffle
 from rdkit.Chem import MACCSkeys
-import numpy as np
-import pandas as pd
 from rdkit.Chem import MolFromSmiles,AllChem
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
-from rdkit import DataStructs
 from sklearn.neighbors import KNeighborsClassifier
 import joblib
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score, cohen_kappa_score
@@ -21,7 +17,7 @@ import pickle
 warnings.filterwarnings("ignore")
 #Hyperparametric dictionary
 dictionary0 = {
-    'n_neighbors':[1,3,5,7,9,11]
+    "n_neighbors":range(1,21,2)
 }
 #Root directory
 basePath=os.getcwd()
@@ -30,14 +26,14 @@ hyperParams0 = pd.DataFrame(list(itertools.product(*dictionary0.values())), colu
 hyperParams0.index=np.arange(len(hyperParams0.index.values))
 #External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
+parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+"/noweakchembl29end/ML/cl/")
+parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+"/noweakchembl29end/ML/pertargetdata/")
 parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl29end/ML/res_noweakchembl29end/')
 parser.add_argument("-ofolds", help="Outer Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-ifolds", help="Inner Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-pStart", help="Parameter Start Index", type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=6)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=10)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -47,6 +43,7 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 #Parameter index
 compParams = list(range(paramStart, paramEnd))
 
@@ -57,23 +54,17 @@ def bestSettingsSimple(perfFiles, nrParams):
         for foldInd in range(0, 4):
             aucParam=[]
             for paramNr in range(0, nrParams):
-                #try:
                 saveFile=open(perfFiles[outind][foldInd][paramNr], "rb")
                 aucRun=pickle.load(saveFile)
                 saveFile.close()
-                #except:
-                #  pass
                 if(len(aucRun)>0):
                     aucParam.append(aucRun[-1])
-        
             aucParam=np.array(aucParam)
-        
             if(len(aucParam)>0):
                 aucFold.append(aucParam)
     aucFold=np.array(aucFold)
     aucMean=np.nanmean(aucFold, axis=0)
     paramInd=np.nanmean(aucMean, axis=1).argmax()
-  
     return (paramInd, aucMean, aucFold)
 #Extraction of cluster information, characteristic information, activity information and target name corresponding to each target 
 def ClusterCV(csv_file):
@@ -122,7 +113,6 @@ def batchECFP(smiles, radius=3, nBits=2048):
         fingerprints_out=fingerprints_4
     elif datasetNames=="fcfp6MACCS":
         fingerprints_out=fingerprints_5
-    
     return fingerprints_out
 
 #Read file information in a folder
@@ -150,8 +140,6 @@ def data_split_modeling(target_file):
     if not os.path.exists(dbgPath):
         os.makedirs(dbgPath)
     # modeling
-
-    
     savePrefix0=target_name+'_model'
     savePrefix=save_path+savePrefix0
     dbgOutput=open(dbgPath+savePrefix0+".dbg", "w")
@@ -169,20 +157,18 @@ def data_split_modeling(target_file):
     paramNr, perfTable, perfTableOrig=bestSettingsSimple(perfFiles, hyperParams0.shape[0])
     print(hyperParams0.iloc[paramNr], file=dbgOutput)
     print(perfTable, file=dbgOutput)
-    dbgOutput.close()        
-
+    dbgOutput.close()
     n_neighbors1 = hyperParams0.iloc[paramNr].n_neighbors
     knn = KNeighborsClassifier(n_neighbors=n_neighbors1)
 
-    # Get training data
+    # Get training data index
     train_index = np.where(folds != 6)[0]
-    #print(train_index)
     # Get train samples
     X_train = features[train_index, :]
     y_train = active_label.iloc[train_index]
     # Modeling 
     knn.fit(X_train, y_train)
-    
+    #save model
     saveFilename = savePrefix + "_knn.pckl"
     joblib.dump(knn,saveFilename)
 

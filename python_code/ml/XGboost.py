@@ -12,7 +12,6 @@ from rdkit import DataStructs
 from xgboost.sklearn import XGBClassifier
 import joblib
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score
-from sklearn.metrics import confusion_matrix, silhouette_score, average_precision_score
 import datetime
 import argparse
 import pandas as pd
@@ -20,29 +19,29 @@ import itertools
 import numpy as np
 import pickle
 warnings.filterwarnings("ignore")
+
 #Root directory
 basePath=os.getcwd()
+
 #Hyperparametric dictionary
 dictionary0 = {
     'scale_pos_weight':[1,5,10],
-    'n_estimators':[5,100,200],
-    'max_depth':[5,10]
+    'n_estimators':range(50,400,50),
+    'max_depth':range(1,11,2)
 }
 #Hyperparameters combination
 hyperParams0 = pd.DataFrame(list(itertools.product(*dictionary0.values())), columns=dictionary0.keys())
-new=pd.DataFrame({'scale_pos_weight':5,'n_estimators':5,'max_depth':5},index=[18])
-hyperParams0=hyperParams0.append(new)
 hyperParams0.index=np.arange(len(hyperParams0.index.values))
 #External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target",type=str, default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
+parser.add_argument("-cl_file", help="cl per target",type=str, default=basePath+'/noweakchembl29end/ML/cl/')
+parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl29end/ML/pertargetdata/')
 parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl29end/ML/res_noweakchembl29end/')
 parser.add_argument("-ofolds", help="Outer Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-ifolds", help="Inner Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-pStart", help="Parameter Start Index", type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=19)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=105)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -52,6 +51,7 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 #Parameter index
 compParams = list(range(paramStart, paramEnd))
 
@@ -146,19 +146,17 @@ def data_split_modeling(target_file):
                     savePrefix0 = "o" + '{0:04d}'.format(outerFold + 1) + "_i" + '{0:04d}'.format(
                         innerFold + 1) + "_p" + '{0:04d}'.format(hyperParams0.index.values[paramNr])
                     savePrefix = save_path + savePrefix0
+                    if os.path.isfile(savePrefix+'.test.auc.pckl'):
+                        continue
                     #determine parameter / modeling
-                    if paramNr==18:
-                        xg = XGBClassifier()
-                    else:
-                        scale_pos_weight1 = hyperParams0.iloc[paramNr].scale_pos_weight
-                        n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
-                        max_depth1 = hyperParams0.iloc[paramNr].max_depth
-                        xg = XGBClassifier(max_depth=max_depth1, learning_rate=0.05, n_estimators=n_estimators1, objective='binary:logistic', scale_pos_weight=scale_pos_weight1)
+                    scale_pos_weight1 = hyperParams0.iloc[paramNr].scale_pos_weight
+                    n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
+                    max_depth1 = hyperParams0.iloc[paramNr].max_depth
+                    xg = XGBClassifier(max_depth=max_depth1, learning_rate=0.05, n_estimators=n_estimators1, objective='binary:logistic', scale_pos_weight=scale_pos_weight1)
 
-                    # Get training and testing set
+                    # Get training and testing index
                     test_index = np.where(folds == innerFold)[0]
                     train_index = np.where((folds != outerFold) & (folds != innerFold))[0]
-                    
                     # Get train and test samples
                     X_test = features[test_index, :]
                     X_train = features[train_index, :]
@@ -178,7 +176,7 @@ def data_split_modeling(target_file):
                     pickle.dump(reportTestAUC, saveFile)
                     saveFile.close()
                 except:
-                    with open(saveBasePath+"/ML/"+datasetNames+"/XGBOOST/"+'/failed_target', 'a+') as failed:
+                    with open(saveBasePath+'/ML/'+datasetNames+'/XGBOOST/'+target_name+'failed_target', 'a+') as failed:
                         failed.write(target_name + ' ' + 'failed' + '\n')
 
 startime = datetime.datetime.now()

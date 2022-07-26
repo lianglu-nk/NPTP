@@ -3,8 +3,6 @@ import os
 import warnings
 from random import shuffle
 from rdkit.Chem import MACCSkeys
-import numpy as np
-import pandas as pd
 from rdkit.Chem import MolFromSmiles,AllChem
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
 from rdkit import DataStructs
@@ -21,27 +19,26 @@ import pickle
 warnings.filterwarnings("ignore")
 #Root directory
 basePath=os.getcwd()
+
 #Hyperparametric dictionary
 dictionary0 = {
     'scale_pos_weight':[1,5,10],
-    'n_estimators':[5,100,200],
-    'max_depth':[5,10]
+    'n_estimators':range(50,400,50),
+    'max_depth':range(1,11,2)
 }
 #Hyperparameters combination
 hyperParams0 = pd.DataFrame(list(itertools.product(*dictionary0.values())), columns=dictionary0.keys())
-new=pd.DataFrame({'scale_pos_weight':5,'n_estimators':5,'max_depth':5},index=[18])
-hyperParams0=hyperParams0.append(new)
 hyperParams0.index=np.arange(len(hyperParams0.index.values))
 #External parameters input
 parser = argparse.ArgumentParser()
-parser.add_argument("-cl_file", help="cl per target", type=str, default=basePath+'/noweakchembl26end/ML/cl/')
-parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl26end/ML/pertargetdata/')
+parser.add_argument("-cl_file", help="cl per target", type=str,default=basePath+'/noweakchembl29end/ML/cl/')
+parser.add_argument("-pertarget_file", help="smi per target", type=str, default=basePath+'/noweakchembl29end/ML/pertargetdata/')
 parser.add_argument("-datasetNames", help="Dataset Name",type=str, default="ecfp6fcfp6MACCS")
-parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl26end/ML/res_noweakchembl26end/')
+parser.add_argument("-saveBasePath", help="saveBasePath", type=str, default=basePath+'/noweakchembl29end/ML/res_noweakchembl29end/')
 parser.add_argument("-ofolds", help="Outer Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-ifolds", help="Inner Folds", nargs='+', type=int, default=[0, 1, 2, 3, 4])
 parser.add_argument("-pStart", help="Parameter Start Index", type=int, default=0)
-parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=19)
+parser.add_argument("-pEnd", help="Parameter End Index", type=int, default=105)
 args = parser.parse_args()
 cl_file = args.cl_file
 pertarget_file = args.pertarget_file
@@ -51,6 +48,7 @@ compOuterFolds = args.ofolds
 compInnerFolds = args.ifolds
 paramStart = args.pStart
 paramEnd = args.pEnd
+
 #Parameter index
 compParams = list(range(paramStart, paramEnd))
 
@@ -69,7 +67,6 @@ def bestSettingsSimple(perfFiles, nrParams):
             #  pass
             if(len(aucRun)>0):
                 aucParam.append(aucRun[-1])
-    
         aucParam=np.array(aucParam)
     
         if(len(aucParam)>0):
@@ -79,6 +76,7 @@ def bestSettingsSimple(perfFiles, nrParams):
     paramInd=np.nanmean(aucMean, axis=1).argmax()
   
     return (paramInd, aucMean, aucFold)
+
 #Extraction of cluster information, characteristic information, activity information and target name corresponding to each target 
 def ClusterCV(csv_file):
     tar_id = csv_file.split('.')[0]
@@ -171,20 +169,17 @@ def data_split_modeling(target_file):
         print(hyperParams0.iloc[paramNr], file=dbgOutput)
         print(perfTable, file=dbgOutput)
         dbgOutput.close()
-        
         roc_auc = []
-        if paramNr==18:
-            xg = XGBClassifier()
-        else:
-            scale_pos_weight1 = hyperParams0.iloc[paramNr].scale_pos_weight
-            n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
-            max_depth1 = hyperParams0.iloc[paramNr].max_depth
-            xg = XGBClassifier(max_depth=max_depth1, learning_rate=0.05, n_estimators=n_estimators1, objective='binary:logistic', scale_pos_weight=scale_pos_weight1)
 
-        # Get training and testing set
+        scale_pos_weight1 = hyperParams0.iloc[paramNr].scale_pos_weight
+        n_estimators1 = hyperParams0.iloc[paramNr].n_estimators
+        max_depth1 = hyperParams0.iloc[paramNr].max_depth
+        xg = XGBClassifier(max_depth=max_depth1, learning_rate=0.05, n_estimators=n_estimators1, objective='binary:logistic', scale_pos_weight=scale_pos_weight1)
+
+        # Get training and testing index
         test_index = np.where(folds == outerFold)[0]
         train_index = np.where(folds != outerFold)[0]
-        print(train_index)
+
         # Get train and test samples
         X_test = features[test_index, :]
         X_train = features[train_index, :]
@@ -212,7 +207,7 @@ folder_path = pertarget_file
 files_list = get_file_list(folder_path)
 #Number of targets corresponds to number of tasks
 p = mp.Pool(processes=949)
-for tar_file in files_list:
+for tar_file in files_list[:1]:
     result = p.apply_async(data_split_modeling, args=(tar_file,))  # distribute one task to one pool
 p.close()  # finished load task
 p.join()  # start
@@ -221,4 +216,4 @@ endtime = datetime.datetime.now()
 print("End time", endtime)
 costime = endtime - startime
 print("Cost time", costime)
-#data_split_modeling(files_list[0])
+

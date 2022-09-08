@@ -1,5 +1,4 @@
-#Parts of code in this file have been taken (copied) from https://github.com/ml-jku/lsc
-#Copyright (C) 2018 Andreas Mayr
+
 import rdkit
 import rdkit.Chem
 import rdkit.Chem.MACCSkeys

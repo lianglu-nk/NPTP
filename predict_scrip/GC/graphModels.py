@@ -1,8 +1,4 @@
-#Copyright (C) 2018 Andreas Mayr
-#Licensed under GNU General Public License v3.0 (see http://www.bioinf.jku.at/research/lsc/LICENSE and https://github.com/ml-jku/lsc/blob/master/LICENSE)
 
-#Parts of code in this file have been taken (copied) from DeepChem (https://github.com/deepchem/)
-#Copyright 2017 PandeLab
 import collections
 import numpy as np
 import six

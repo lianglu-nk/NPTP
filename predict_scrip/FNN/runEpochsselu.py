@@ -30,19 +30,8 @@ if (normalizeGlobalSparse or normalizeLocalSparse) and (nrSparseFeatures > 0.5):
     session.run(sparseMeanInitOp, feed_dict={sparseMeanInit: trainSparseDiv2.reshape(1, -1)})
     session.run(sparseMeanWSparseOp.op)
 
-saveFilename = savePrefix + ".trainInfo.pckl"
-if os.path.isfile(saveFilename):
-    saveFile = open(saveFilename, "rb")
-    startEpoch = pickle.load(saveFile)
-    minibatchCounterTrain = pickle.load(saveFile)
-    minibatchCounterTest = pickle.load(saveFile)
-    minibatchReportNr = pickle.load(saveFile)
-    saveFile.close()
-
-saveFilename = savePrefix + ".trainModel.meta"
-if os.path.isfile(saveFilename):
-    saveFilename = savePrefix + ".trainModel"
-    tf.train.Saver().restore(session, saveFilename)
+if continueComputations and loadScript!="":
+    exec(open(loadScript).read(), globals())
 endEpoch=nrEpochs
 
 if nrSparseFeatures>0.5:

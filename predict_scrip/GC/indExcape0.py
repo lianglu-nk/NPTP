@@ -21,6 +21,7 @@ import pickle
 import os
 import sys
 import tensorflow as tf
+import utilsLib
 import actLib
 
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -144,17 +145,7 @@ nrSparseFeatures=0
 if ("graphInputData" in globals()) and (not (graphInputData is None)):
   testGraphInput=graphInputData[graphSampleIndex[testSamples].values].copy()
 
-dictionary0 = {
-  'basicArchitecture': ['GraphConv'],
-  'learningRate': [0.001, 0.0001],
-  'dropout': [0.0, 0.5],
-  'graphLayers': [[128]*2, [128]*3, [128]*4],
-  'denseLayers': [[1024], [2048]]
-}
-
-hyperParams=pd.DataFrame(list(itertools.product(*dictionary0.values())), columns=dictionary0.keys())
-hyperParams.index=np.arange(len(hyperParams.index.values))
-
+exec(open(scrip_path+'hyperparams.py').read(), globals())
 #Optimal parameter index corresponding to different models
 if datatset_type in ['chembl29']:
   paramNr =18
@@ -176,7 +167,12 @@ else:
 savePrefix=dataSave+savePrefix0
 
 #Load model
+modelScript=scrip_path+'models.py'
+
+
+loadScript=scrip_path+'step2Load.py'
 saveScript=""
+
 exec(open(scrip_path+'runEpochs.py').read(), globals())
 predMatrix=pd.DataFrame(data=predDenseTest, index=testSamples, columns=targetAnnInd.index.values.tolist())
 print(predMatrix)

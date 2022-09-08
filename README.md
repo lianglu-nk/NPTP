@@ -118,7 +118,7 @@ python ./predict_scrip/LSTM/indExcape0.py -smiles_file ./data/test.csv
 ### 13) Predicting used the ML model:
 
 ```bash
-python ./predict_scrip/predictML.py -smiles_file ./data/test.csv -model_name SVM -dataset_type derivant_chembl26
+python ./predict_scrip/predictML.py -smiles_file ./data/test.csv -model_name SVM -datatset_type derivant_chembl26
 ```
 
 ## Script Usages: 
